@@ -8,12 +8,18 @@ import api from '../../services/api';
 
 import Header from '../../components/Header';
 
-import {
-  formatValueToCurrency,
-  formatValueToDate,
-} from '../../utils/formatValue';
+import formatValue from '../../utils/formatValue';
 
 import { Container, CardContainer, Card, TableContainer } from './styles';
+
+interface TransactionResponse {
+  id: string;
+  title: string;
+  value: number;
+  type: 'income' | 'outcome';
+  category: { title: string };
+  created_at: string;
+}
 
 interface Transaction {
   id: string;
@@ -37,25 +43,35 @@ const Dashboard: React.FC = () => {
   const [balance, setBalance] = useState<Balance>({} as Balance);
 
   useEffect(() => {
-    api.get(`http://localhost:3333/transactions`).then(response => {
-      const { transactions, balance } = response.data;
-      const transactionsDone: Transaction[] = transactions.map(
-        (item: Transaction) => {
-          const formattedDate = formatValueToDate(item.created_at);
-          const formattedValue = formatValueToCurrency(item.value);
+    api.get('transactions').then(response => {
+      const {
+        transactions: transactionsResponse,
+        balance: balanceResponse,
+      } = response.data;
+      const transactionsDone: Transaction[] = transactionsResponse.map(
+        (item: TransactionResponse) => {
+          const formattedDate = Intl.DateTimeFormat('pt-br').format(
+            new Date(item.created_at),
+          );
+          const formattedValue =
+            item.type === 'outcome'
+              ? `- ${formatValue(item.value)}`
+              : formatValue(item.value);
           return { ...item, formattedValue, formattedDate };
         },
       );
       setTransactions(transactionsDone);
 
-      const income = formatValueToCurrency(balance.income);
-      const outcome = formatValueToCurrency(balance.outcome);
-      const total = formatValueToCurrency(balance.total);
-      setBalance({ income, outcome, total });
-
-      console.log(response.data);
+      const incomeValue = formatValue(balanceResponse.income);
+      const outcomeValue = formatValue(balanceResponse.outcome);
+      const totalValue = formatValue(balanceResponse.total);
+      setBalance({
+        income: incomeValue,
+        outcome: outcomeValue,
+        total: totalValue,
+      });
     });
-  }, [balance, transactions]);
+  }, []);
 
   return (
     <>
@@ -100,7 +116,7 @@ const Dashboard: React.FC = () => {
               {transactions &&
                 transactions.map(transaction => (
                   <tr key={transaction.id}>
-                    <td className="title">{transaction.title}</td>
+                    <td className={transaction.title}>{transaction.title}</td>
                     <td className={transaction.type}>
                       {transaction.formattedValue}
                     </td>
